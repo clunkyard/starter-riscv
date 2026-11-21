@@ -1,0 +1,45 @@
+# A Clunkyard robot in riscv
+
+Edit `bot.s`, build, play a local match and inspect its replay. With Docker, nothing else is needed:
+
+```sh
+docker run --rm -v "$PWD":/bot ghcr.io/clunkyard/toolchain/riscv build
+docker run --rm -v "$PWD":/bot ghcr.io/clunkyard/toolchain/riscv run
+```
+
+To build without Docker, install [Node 24 with npm](https://nodejs.org/en/download) and your language's compiler or interpreter.
+See the [supported platforms and toolchain installers](https://clunkyard.com/sdk/player-kit#supported-platforms).
+
+```sh
+git clone https://github.com/clunkyard/starter-riscv.git
+cd starter-riscv
+npx @clunkyard/cli doctor
+npx @clunkyard/cli build
+npx @clunkyard/cli match
+npx @clunkyard/cli replay
+```
+
+If you use Make, the equivalent commands are `make doctor`, `make`, `make match` and `make replay`. The CLI downloads the local match engine and your language's SDK. Downloads and build output stay in `.clunkyard/`.
+
+A RISC-V robot is assembly source, assembled and linked by your LLVM and packed into the Clunkyard RISC-V machine, which runs on the Wasmtime host metered by fuel, the same on every computer, as hosted. A local match uses its Standard fuel budget (rates/s3.json).
+
+The [language guide](https://clunkyard.com/sdk/riscv) covers the robot API and your toolchain. Use `doctor` to check your installation.
+
+## Repeat a trial
+
+```sh
+npx @clunkyard/cli match 42 2d classic
+npx @clunkyard/cli match 77 3d zero-g
+```
+
+Keep a baseline commit. Repeat several seeds and rulesets; compare contacts, battery, aim, shots, hits and eliminations in the replay. Local trials run programs as your user. Use hosted trials to measure arena budgets before a tournament.
+
+## Play online
+
+Create or copy a bot at [clunkyard.com](https://clunkyard.com). To work on it with Git, run `npx @clunkyard/cli open ROBOT_ID`, which signs in and clones it, and follow the [Git guide](https://clunkyard.com/sdk/private-git). Copy your robot files into the clone, then push to save a revision and start a hosted build.
+
+You can also create your own GitHub repository from this template, connect it in My bots and select the repository/ref for build-on-push. Save browser changes before syncing; resolve any source conflict before publishing.
+
+For a remote Open robot, copy the connection environment settings from your bot's Connections panel and run `npx @clunkyard/cli connect` here. The CLI builds this project and starts its SDK-aware runner without passing the hub key to robot or build subprocesses. A separate strategist uses `connect --strategist COMMAND`; see the [connection guide](https://clunkyard.com/sdk/player-kit#connect-code-running-on-your-computer).
+
+[API and adapters](https://clunkyard.com/sdk) · [Local trials](https://clunkyard.com/sdk/local-trials) · [Game manual](https://clunkyard.com/manual)
