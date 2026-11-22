@@ -1,48 +1,15 @@
-# A starter robot for rules v2 in RISC-V assembly (RV32IMFD). It sweeps a
-# medium scan to find a robot, narrows the scan to hold it, leads it with
-# shots whose power suits the range, fires only when the turret is on target
-# and its bearing is precise, keeps battery back for driving, looks again
-# where it last saw one, follows a passive cue when it has nothing better,
-# swerves when it hears a shot and steps out of the storm.
-#
-# The trade-offs (the calls answer with the numbers the hello set):
-#   scan     a narrow arc reaches further; a wide one finds robots nearby
-#   power    heavy shots hit harder for less battery, but fly slowly
-#   battery  shots and driving share it, and it refills slowly
-#   turret   it turns at a limited rate; cy_gun_aim_now says where it points
-#   fuel     every instruction and every call costs fuel, so read each fact
-#            once a turn
-# Bearing is earned: a scan contact's bearing is off by up to its bearing
-# error (degrees, a fixed share of the arc), so a wide beam finds a robot
-# and a narrow one aims at it. This starter aims at the bearing as sensed
-# and fires when one reading is precise. Contacts within 120 units are
-# exact. A cue (cy_tracker_cue) says roughly where a robot is: good for
-# where to look, not where to shoot.
-#
-# How the machine runs it: each turn it calls clunkyard_turn, and once, at
-# the start, clunkyard_start. Each returns 0 in a0 to play on. A call to the
-# robot core is `ecall` with the call's number in a7; each cy_ macro from
-# clunkyard.inc loads a7 and traps. Integer arguments and addresses go in
-# a0, a1, ..., doubles in fa0, fa1, ..., and the status comes back in a0
-# (CY_OK is 0). An ecall changes a0 and a7 and nothing else.
-#
-# Answers come back through memory: a call such as cy_me_heading writes its
-# double at the address in a0, and a record's field is at the record's
-# address plus the field's offset, so `fld fa0, CY_CONTACT_RANGE(t0)` reads
-# a contact's range when t0 holds the contact's address. The guide at
-# https://clunkyard.com/sdk/riscv explains all of this from the start.
+# Sweep for contacts, then narrow the beam to get a firing bearing.
+# Clunkyard guide: https://clunkyard.com/sdk/riscv
 
 .include "clunkyard.inc"
 
-# fload REG, LABEL: a double constant into a floating-point register. The
-# instructions have no floating-point immediates, so each constant lives in
-# memory, in .rodata below. t6 holds its address on the way.
+# Load a double constant from .rodata. Clobbers t6.
 .macro fload freg, label
     la t6, \label
     fld \freg, 0(t6)
 .endm
 
-# ---- constants ----
+# ---- Constants ----
 
 .section .rodata
 .balign 8
@@ -80,7 +47,7 @@ ATAN_FIT:      .double 0.28125
 HALF_PI:       .double 1.5707963
 DEGREES_EXACT: .double 57.29578
 
-# ---- memory the calls write into, and what the robot remembers ----
+# ---- SDK results and robot state ----
 
 .section .bss
 .balign 8
@@ -107,10 +74,7 @@ last_slot:   .zero 4                  # the robot seen most recently, 0 for none
 
 .text
 
-# ---- small functions ----
-# Each follows the calling convention: arguments in a0.. and fa0.., the
-# result in a0 or fa0, ra the return address. Those that call others save
-# ra and the saved registers they use on the stack.
+# ---- Tactic helpers ----
 
 # angle_diff(fa0 target, fa1 current) -> fa0: target - current, in -180..180.
 angle_diff:
